@@ -32,7 +32,7 @@
 
 % -export([on_session_created/3, on_session_subscribed/4, on_session_unsubscribed/4, on_session_terminated/4]).
 
--export([on_message_publish/2, on_message_delivered/3, on_message_acked/3]).
+-export([on_message_publish/2, on_message_deliver/3, on_message_acked/3]).
 
 
 %% Called when the plugin application start
@@ -41,7 +41,7 @@ load(Env) ->
     emqx:hook('client.connected', fun ?MODULE:on_client_connected/4, [Env]),
     emqx:hook('client.disconnected', fun ?MODULE:on_client_disconnected/3, [Env]),
     emqx:hook('message.publish', fun ?MODULE:on_message_publish/2, [Env]),
-    emqx:hook('message.delivered', fun ?MODULE:on_message_delivered/3, [Env]),
+    emqx:hook('message.delivered', fun ?MODULE:on_message_deliver/3, [Env]),
     emqx:hook('message.acked', fun ?MODULE:on_message_acked/3, [Env]).
 
 on_client_connected(#{client_id := ClientId, username := Username}, _ConnAck, _ConnAttrs, _Env) ->
