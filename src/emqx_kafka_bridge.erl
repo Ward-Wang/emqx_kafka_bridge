@@ -78,10 +78,14 @@ on_message_publish(Message, _Env) ->
 
 on_message_delivered(#{}, Message, _Env) ->
     % io:format("delivered to client(~s/~s): ~s~n", [Username, ClientId, emqttd_message:format(Message)]),
+    {ok, Payload} = format_payload(Message),
+    produce_kafka_payload(Payload),
     {ok, Message}.
 
 on_message_acked(#{}, Message, _Env) ->
     % io:format("client(~s/~s) acked: ~s~n", [Username, ClientId, emqttd_message:format(Message)]),
+    {ok, Payload} = format_payload(Message),
+    produce_kafka_payload(Payload),
     {ok, Message}.
 
 ekaf_init(_Env) ->
