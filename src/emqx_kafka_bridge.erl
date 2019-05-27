@@ -32,8 +32,8 @@
 
 % -export([on_session_created/3, on_session_subscribed/4, on_session_unsubscribed/4, on_session_terminated/4]).
 
--export([on_message_publish/2, on_message_deliver/3, on_message_acked/3]).
-
+-export([on_message_publish/2]).
+-export([on_message_deliver/3, on_message_acked/3]).
 
 %% Called when the plugin application start
 load(Env) ->
@@ -41,7 +41,7 @@ load(Env) ->
     emqx:hook('client.connected', fun ?MODULE:on_client_connected/4, [Env]),
     emqx:hook('client.disconnected', fun ?MODULE:on_client_disconnected/3, [Env]),
     emqx:hook('message.publish', fun ?MODULE:on_message_publish/2, [Env]),
-    emqx:hook('message.delivered', fun ?MODULE:on_message_deliver/3, [Env]),
+    emqx:hook('message.deliver', fun ?MODULE:on_message_deliver/3, [Env]),
     emqx:hook('message.acked', fun ?MODULE:on_message_acked/3, [Env]).
 
 on_client_connected(#{client_id := ClientId, username := Username}, _ConnAck, _ConnAttrs, _Env) ->
@@ -72,19 +72,19 @@ on_message_publish(Message = #message{topic = <<"$SYS/", _/binary>>}, _Env) ->
 
 on_message_publish(Message, _Env) ->
     % io:format("Publish message ~s~n", [emqx_message:format(Message)]),
-    {ok, Payload} = format_payload(Message),
+    {ok, Payload} = format_payload(Message,<<"message_publish">>),
     produce_kafka_payload(Payload),
     {ok, Message}.
 
 on_message_deliver(#{client_id := ClientId}, Message, _Env) ->
     io:format("Deliver message to client(~s): ~s~n", [ClientId, emqx_message:format(Message)]),
-    {ok, Payload} = format_payload(Message),
+    {ok, Payload} = format_payload(Message,<<"message_deliver">>),
     produce_kafka_payload(Payload),
     {ok, Message}.
 
 on_message_acked(#{client_id := ClientId}, Message, _Env) ->
     io:format("Session(~s) acked message: ~s~n", [ClientId, emqx_message:format(Message)]),
-    {ok, Payload} = format_payload(Message),
+    {ok, Payload} = format_payload(Message,<<"message_acked">>),
     produce_kafka_payload(Payload),
     {ok, Message}.
 
@@ -111,10 +111,13 @@ ekaf_get_topic() ->
     Topic.
 
 
-format_payload(Message) ->
+format_payload(Message,MessageType) ->
     Username = emqx_message:get_header(username, Message),
 
     Topic = Message#message.topic,
+	MessageId = Message#message.id,
+	MessageQoS = Message#message.qos,
+	MessageTimestamp = Message#message.timestamp,
     Tail = string:right(binary_to_list(Topic), 4),
     RawType = string:equal(Tail, <<"_raw">>),
     % io:format("Tail= ~s , RawType= ~s~n",[Tail,RawType]),
@@ -131,12 +134,14 @@ format_payload(Message) ->
     end,
 
 
-    Payload = [{action, message_publish},
+    Payload = [{action, MessageType},
         {device_id, Message#message.from},
         {username, Username},
-        {topic, Topic},
-        {payload, MsgPayload64},
-        {ts, emqx_time:now_secs(Message#message.timestamp)}],
+        {messageId, MessageId},
+        {messageQoS, MessageQoS},
+		{messageTopic, Topic},
+		{messagePayload, MsgPayload64},
+        {messageTimestamp, MessageTimestamp}],
 
     {ok, Payload}.
 
@@ -150,7 +155,7 @@ unload() ->
     % emqx:unhook('session.subscribed', fun ?MODULE:on_session_subscribed/4),
     % emqx:unhook('session.unsubscribed', fun ?MODULE:on_session_unsubscribed/4),
     emqx:unhook('message.publish', fun ?MODULE:on_message_publish/2),
-    emqx:unhook('message.delivered', fun ?MODULE:on_message_delivered/3),
+    emqx:unhook('message.deliver', fun ?MODULE:on_message_deliver/3),
     emqx:unhook('message.acked', fun ?MODULE:on_message_acked/3).
 
 produce_kafka_payload(Message) ->
