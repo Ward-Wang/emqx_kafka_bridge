@@ -76,14 +76,14 @@ on_message_publish(Message, _Env) ->
     produce_kafka_payload(Payload),
     {ok, Message}.
 
-on_message_delivered(#{}, Message, _Env) ->
-    % io:format("delivered to client(~s/~s): ~s~n", [Username, ClientId, emqttd_message:format(Message)]),
+on_message_deliver(#{client_id := ClientId}, Message, _Env) ->
+    io:format("Deliver message to client(~s): ~s~n", [ClientId, emqx_message:format(Message)]),
     {ok, Payload} = format_payload(Message),
     produce_kafka_payload(Payload),
     {ok, Message}.
 
-on_message_acked(#{}, Message, _Env) ->
-    % io:format("client(~s/~s) acked: ~s~n", [Username, ClientId, emqttd_message:format(Message)]),
+on_message_acked(#{client_id := ClientId}, Message, _Env) ->
+    io:format("Session(~s) acked message: ~s~n", [ClientId, emqx_message:format(Message)]),
     {ok, Payload} = format_payload(Message),
     produce_kafka_payload(Payload),
     {ok, Message}.
