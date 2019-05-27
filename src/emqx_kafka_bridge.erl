@@ -115,7 +115,7 @@ format_payload(Message,MessageType) ->
     Username = emqx_message:get_header(username, Message),
 
     Topic = Message#message.topic,
-	MessageId = Message#message.id,
+	MessageId = list_to_binary(base64:encode_to_string(Message#message.id)),
 	MessageQoS = Message#message.qos,
 	MessageTimestamp = Message#message.timestamp,
     Tail = string:right(binary_to_list(Topic), 4),
